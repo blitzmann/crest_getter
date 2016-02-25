@@ -16,6 +16,7 @@ import sys
 import crawling
 import reporting
 
+from server import StoppableHTTPServer, AuthHandler
 
 ARGS = argparse.ArgumentParser(description="Web crawler")
 ARGS.add_argument(
@@ -51,6 +52,9 @@ ARGS.add_argument(
 ARGS.add_argument(
     '-q', '--quiet', action='store_const', const=0, dest='level',
     default=2, help='Only log errors')
+ARGS.add_argument(
+    '--auth', action='store_true', dest='auth',
+    default=False, help='Use CREST Authentication (fill out client_app.ini)')
 
 
 def fix_url(url):
@@ -70,11 +74,21 @@ def main():
         print('Use --help for command line help')
         return
 
-
     config = configparser.ConfigParser()
     config.read('client_app.ini')
 
-    r = requests.get('https://login.eveonline.com/oauth')
+    if args.auth:
+        def handleLogin(httpd, things):
+            global config
+            # do requests here to get auth/refresh code and stick them in config (save maybe?)
+            r = requests.get('https://login.eveonline.com/oauth')
+            httpd.stop()
+
+        httpd = StoppableHTTPServer(('', 6789), AuthHandler)
+        print("Please go here to authenticate: ")
+        url = "https://login.eveonline.com/oauth/authorize/?response_type=code&scope=publicData&redirect_uri=http://localhost:6789/&client_id={}".format(config['client']['Key'])
+
+        httpd.serve(handleLogin)
 
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=levels[min(args.level, len(levels)-1)])

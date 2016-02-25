@@ -137,11 +137,11 @@ class Crawler:
                 content_type, pdict = cgi.parse_header(content_type)
 
             encoding = pdict.get('charset', 'utf-8')
-            if content_type in ('text/html', 'application/xml'):
+            if 'application/vnd.ccp.eve' in content_type:
                 text = yield from response.text()
 
                 # Replace href with (?:href|src) to follow image links.
-                urls = set(re.findall(r'''(?i)href=["']([^\s"'<>]+)''',
+                urls = set(re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',
                                       text))
                 if urls:
                     LOGGER.info('got %r distinct urls from %r',
@@ -172,8 +172,12 @@ class Crawler:
         exception = None
         while tries < self.max_tries:
             try:
+                headers = {
+                    "User-agent": "test",
+                    "Authorization": "Bearer AUTHCODE"
+                }
                 response = yield from self.session.get(
-                    url, allow_redirects=False)
+                    url, allow_redirects=False, headers=headers)
 
                 if tries > 1:
                     LOGGER.info('try %r for %r success', tries, url)

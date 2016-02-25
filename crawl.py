@@ -7,7 +7,10 @@
 
 import argparse
 import asyncio
+import requests
 import logging
+import base64
+import configparser
 import sys
 
 import crawling
@@ -66,6 +69,12 @@ def main():
     if not args.roots:
         print('Use --help for command line help')
         return
+
+
+    config = configparser.ConfigParser()
+    config.read('client_app.ini')
+
+    r = requests.get('https://login.eveonline.com/oauth')
 
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=levels[min(args.level, len(levels)-1)])

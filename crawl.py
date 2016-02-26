@@ -58,6 +58,9 @@ ARGS.add_argument(
 ARGS.add_argument(
     '--invalid', action='store_true', dest='invalid',
     default=False, help='Invalidate the stored refresh token and go through the authorization process again')
+ARGS.add_argument(
+    '--nopages', action='store_false', dest='follow_pages',
+    default=True, help='Do not follow page links')
 
 def fix_url(url):
     """Prefix a schema-less URL with http://."""
@@ -149,6 +152,7 @@ def main():
                                max_tries=args.max_tries,
                                max_tasks=args.max_tasks,
                                headers=headers,
+                               follow_pages=args.follow_pages,
                                )
     try:
         loop.run_until_complete(crawler.crawl())  # Crawler gonna crawl.

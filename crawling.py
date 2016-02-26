@@ -50,7 +50,8 @@ class Crawler:
     def __init__(self, roots,
                  exclude=None, strict=True,  # What to crawl.
                  max_redirect=10, max_tries=4,  # Per-url limits.
-                 max_tasks=10, *, loop=None, headers=None):
+                 max_tasks=10, *, loop=None,
+                 headers=None, follow_pages=True):
         self.loop = loop or asyncio.get_event_loop()
         self.roots = roots
         self.exclude = exclude
@@ -59,6 +60,7 @@ class Crawler:
         self.max_tries = max_tries
         self.max_tasks = max_tasks
         self.headers = headers
+        self.follow_pages = follow_pages
         self.q = Queue(loop=self.loop)
         self.seen_urls = set()
         self.done = []
@@ -201,6 +203,9 @@ class Crawler:
             return
 
         try:
+            if not self.follow_pages and "?page=" in url:
+                LOGGER.info('skipping page following for %r', url)
+                return
             if is_redirect(response):
                 location = response.headers['location']
                 next_url = urllib.parse.urljoin(url, location)

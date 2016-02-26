@@ -50,7 +50,7 @@ class Crawler:
     def __init__(self, roots,
                  exclude=None, strict=True,  # What to crawl.
                  max_redirect=10, max_tries=4,  # Per-url limits.
-                 max_tasks=10, *, loop=None):
+                 max_tasks=10, *, loop=None, headers=None):
         self.loop = loop or asyncio.get_event_loop()
         self.roots = roots
         self.exclude = exclude
@@ -58,6 +58,7 @@ class Crawler:
         self.max_redirect = max_redirect
         self.max_tries = max_tries
         self.max_tasks = max_tasks
+        self.headers = headers
         self.q = Queue(loop=self.loop)
         self.seen_urls = set()
         self.done = []
@@ -172,12 +173,8 @@ class Crawler:
         exception = None
         while tries < self.max_tries:
             try:
-                headers = {
-                    "User-agent": "test",
-                    "Authorization": "Bearer AUTHCODE"
-                }
                 response = yield from self.session.get(
-                    url, allow_redirects=False, headers=headers)
+                    url, allow_redirects=False, headers=self.headers)
 
                 if tries > 1:
                     LOGGER.info('try %r for %r success', tries, url)

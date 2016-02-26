@@ -77,15 +77,21 @@ def main():
         return
 
     global config
+    global headers
+
     config = configparser.ConfigParser()
     config.read('client_app.ini')
 
+    headers = {
+        "User-Agent": config['client']['user-agent']
+    }
+
     if args.auth:
         id = bytes("{}:{}".format(config['client']['Key'], config['client']['secret']), encoding="utf-8")
-        headers = {
+        headers.update({
             "Authorization": b"Basic " + base64.b64encode(id),
             "Content-Type": "application/x-www-form-urlencoded"
-        }
+        })
 
         if config['client'].get('refresh', None) and not args.invalid:
             print("Using Refresh token to login")
@@ -93,7 +99,7 @@ def main():
             r = requests.post('https://login.eveonline.com/oauth/token',
                               data="grant_type=refresh_token&refresh_token={}".format(config['client']['refresh']),
                               headers=headers).json()
-            config["client"]["token"] = r['access_token']
+            headers.update({"Authorization": "Bearer {}".format(r['access_token'])})
         else:
             def handleLogin(httpd, parts):
                 # do requests here to get auth/refresh code and stick them in config (save maybe?)
@@ -105,7 +111,7 @@ def main():
                 with open('client_app.ini', 'w') as configfile:
                     config.write(configfile)
 
-                config["client"]["token"] = r['access_token']
+                headers.update({"Authorization": "Bearer {}".format(r['access_token'])})
                 httpd.stop()
 
             httpd = StoppableHTTPServer(('', 6789), AuthHandler)
@@ -134,6 +140,7 @@ def main():
                                max_redirect=args.max_redirect,
                                max_tries=args.max_tries,
                                max_tasks=args.max_tasks,
+                               headers=headers,
                                )
     try:
         loop.run_until_complete(crawler.crawl())  # Crawler gonna crawl.

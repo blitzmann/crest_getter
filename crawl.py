@@ -86,6 +86,14 @@ def main():
         "User-Agent": config['client']['user-agent']
     }
 
+    # @todo: figure out what to do with these. Currently just for creating the auth URL
+    scopes = [
+        'publicData',
+        'characterContactsRead',
+        'characterFittingsRead',
+        'characterLocationRead'
+    ]
+
     if args.auth:
         id = bytes("{}:{}".format(config['client']['Key'], config['client']['secret']), encoding="utf-8")
         headers.update({
@@ -115,7 +123,7 @@ def main():
                 httpd.stop()
 
             httpd = StoppableHTTPServer(('', 6789), AuthHandler)
-            url = "https://login.eveonline.com/oauth/authorize/?response_type=code&scope=publicData&redirect_uri=http://localhost:6789/&client_id={}".format(config['client']['key'])
+            url = "https://login.eveonline.com/oauth/authorize/?response_type=code&scope={}&redirect_uri=http://localhost:6789/&client_id={}".format("+".join(scopes), config['client']['key'])
             print("Please go here to authenticate: \n {}".format(url))
             httpd.serve(handleLogin)
 

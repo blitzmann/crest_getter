@@ -55,7 +55,9 @@ ARGS.add_argument(
 ARGS.add_argument(
     '--auth', action='store_true', dest='auth',
     default=False, help='Use CREST Authentication (fill out client_app.ini)')
-
+ARGS.add_argument(
+    '--invalid', action='store_true', dest='invalid',
+    default=False, help='Invalidate the stored refresh token and go through the authorization process again')
 
 def fix_url(url):
     """Prefix a schema-less URL with http://."""
@@ -74,21 +76,42 @@ def main():
         print('Use --help for command line help')
         return
 
+    global config
     config = configparser.ConfigParser()
     config.read('client_app.ini')
 
     if args.auth:
-        def handleLogin(httpd, things):
-            global config
+        id = bytes("{}:{}".format(config['client']['Key'], config['client']['secret']), encoding="utf-8")
+        headers = {
+            "Authorization": b"Basic " + base64.b64encode(id),
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        if config['client'].get('refresh', None) and not args.invalid:
+            print("Using Refresh token to login")
             # do requests here to get auth/refresh code and stick them in config (save maybe?)
-            r = requests.get('https://login.eveonline.com/oauth')
-            httpd.stop()
+            r = requests.post('https://login.eveonline.com/oauth/token',
+                              data="grant_type=refresh_token&refresh_token={}".format(config['client']['refresh']),
+                              headers=headers).json()
+            config["client"]["token"] = r['access_token']
+        else:
+            def handleLogin(httpd, parts):
+                # do requests here to get auth/refresh code and stick them in config (save maybe?)
+                r = requests.post('https://login.eveonline.com/oauth/token',
+                                  data="grant_type=authorization_code&code={}".format(parts['code'][0]),
+                                  headers=headers).json()
 
-        httpd = StoppableHTTPServer(('', 6789), AuthHandler)
-        print("Please go here to authenticate: ")
-        url = "https://login.eveonline.com/oauth/authorize/?response_type=code&scope=publicData&redirect_uri=http://localhost:6789/&client_id={}".format(config['client']['Key'])
+                config["client"]["refresh"] = r['refresh_token']
+                with open('client_app.ini', 'w') as configfile:
+                    config.write(configfile)
 
-        httpd.serve(handleLogin)
+                config["client"]["token"] = r['access_token']
+                httpd.stop()
+
+            httpd = StoppableHTTPServer(('', 6789), AuthHandler)
+            url = "https://login.eveonline.com/oauth/authorize/?response_type=code&scope=publicData&redirect_uri=http://localhost:6789/&client_id={}".format(config['client']['key'])
+            print("Please go here to authenticate: \n {}".format(url))
+            httpd.serve(handleLogin)
 
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=levels[min(args.level, len(levels)-1)])
